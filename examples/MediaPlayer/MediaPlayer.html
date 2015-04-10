@@ -197,7 +197,7 @@
 				trackTime();
 				return;
 			} else {
-				instance.paused ? instance.resume() : instance.pause();
+				instance.paused ? instance.paused = false : instance.paused = true;
 			}
 
 			if (instance.paused) {
@@ -237,7 +237,7 @@
 				seeking = false;
 				$(this).unbind("mouseup mousemove");
 				var pos = $("#thumb").position().left / $("#track").width();
-				instance.setPosition(pos * instance.getDuration());
+				instance.position = (pos * instance.duration);
 				$("#blocker").remove();
 			});
 		});

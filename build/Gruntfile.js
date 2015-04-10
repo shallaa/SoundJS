@@ -24,11 +24,15 @@ module.exports = function (grunt) {
 								"DEBUG": false
 							}
 						},
+						mangle: {
+							except: getExclusions()
+						}
 					},
 					build: {
 						files: {
 							'output/<%= pkg.name.toLowerCase() %>-<%= version %>.min.js': getConfigValue('source'),
 							'output/flashaudioplugin-<%= version %>.min.js': getConfigValue('flashaudioplugin_source'),
+							'output/cordovaaudioplugin-<%= version %>.min.js': getConfigValue('cordovaaudioplugin_source'),
 						}
 					}
 				},
@@ -72,6 +76,9 @@ module.exports = function (grunt) {
 									]),
 							'output/flashaudioplugin-<%= version %>.combined.js': combineSource([
 																	{cwd: '', config:'config.json', source:'flashaudioplugin_source'}
+																]),
+							'output/cordovaaudioplugin-<%= version %>.combined.js': combineSource([
+																	{cwd: '', config:'config.json', source:'cordovaaudioplugin_source'}
 																])
 						}
 					}
@@ -141,6 +148,10 @@ module.exports = function (grunt) {
 					flashaudioplugin: {
 						file: '../src/soundjs/version_flashplugin.js',
 						version: '<%= version %>'
+					},
+					cordovaaudioplugin: {
+						file: '../src/soundjs/version_cordovaplugin.js',
+						version: '<%= version %>'
 					}
 				},
 
@@ -150,6 +161,9 @@ module.exports = function (grunt) {
 					},
 					flashaudioplugin: {
 						file: '../src/soundjs/version_flashplugin.js'
+					},
+					cordovaaudioplugin: {
+						file: '../src/soundjs/version_cordovaplugin.js'
 					}
 				},
 
@@ -236,6 +250,17 @@ module.exports = function (grunt) {
 		}
 
 		return clean;
+	}
+
+	function getExclusions() {
+		var list = getConfigValue("source").concat(getConfigValue("flashaudioplugin_source")).concat(getConfigValue("cordovaaudioplugin_source"));
+		var files = [];
+		for (var i= 0, l=list.length; i<l; i++) {
+			var name = path.basename(list[i], '.js');
+			var letter = name.substr(0,1); // Check for Uppercase (Class), since methods are fine.
+			if (letter.toUpperCase() == letter) { files.push(name); }
+		}
+		return files;
 	}
 
 	function getBuildArgs() {

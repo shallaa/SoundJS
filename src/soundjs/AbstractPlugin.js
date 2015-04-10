@@ -113,8 +113,7 @@ this.createjs = this.createjs || {};
 // Static Properties:
 // NOTE THESE PROPERTIES NEED TO BE ADDED TO EACH PLUGIN
 	/**
-	 * The capabilities of the plugin. This is generated via the {{#crossLink "WebAudioPlugin/_generateCapabilities:method"}}{{/crossLink}}
-	 * method and is used internally.
+	 * The capabilities of the plugin. This is generated via the _generateCapabilities method and is used internally.
 	 * @property _capabilities
 	 * @type {Object}
 	 * @default null
@@ -141,16 +140,16 @@ this.createjs = this.createjs || {};
 	 * can use to assist with preloading.
 	 * @method register
 	 * @param {String} loadItem An Object containing the source of the audio
-	 * @param {Number} instances The number of concurrently playing instances to allow for the channel at any time.
 	 * Note that not every plugin will manage this value.
 	 * @return {Object} A result object, containing a "tag" for preloading purposes.
 	 */
-	p.register = function (loadItem, instances) {
+	p.register = function (loadItem) {
+		var loader = this._loaders[loadItem.src];
+		if(loader && !loader.canceled) {return this._loaders[loadItem.src];}	// already loading/loaded this, so don't load twice
+		// OJR potential issue that we won't be firing loaded event, might need to trigger if this is already loaded?
 		this._audioSources[loadItem.src] = true;
 		this._soundInstances[loadItem.src] = [];
-		if(this._loaders[loadItem.src]) {return this._loaders[loadItem.src];}	// already loading/loaded this, so don't load twice
-		// OJR potential issue that we won't be firing loaded event, might need to trigger if this is already loaded?
-		var loader = new this._loaderClass(loadItem);
+		loader = new this._loaderClass(loadItem);
 		loader.on("complete", createjs.proxy(this._handlePreloadComplete, this));
 		this._loaders[loadItem.src] = loader;
 		return loader;
@@ -233,8 +232,6 @@ this.createjs = this.createjs || {};
 		return si;
 	};
 
-	// TODO Volume & mute Getter / Setter??
-	// TODO change calls to return nothing or this for chaining??
 	// if a plugin does not support volume and mute, it should set these to null
 	/**
 	 * Set the master volume of the plugin, which affects all SoundInstances.

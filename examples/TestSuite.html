@@ -17,7 +17,11 @@
 		.startTimeSlider,
 		.durationSlider,
 		.masterVolumeSlider,
-		.loopSlider {
+		.loopSlider,
+		.instanceLoopSlider,
+		.instanceStartTimeSlider,
+		.instanceDurationSlider
+		{
 			width: 200px;
 		}
 	</style>
@@ -93,6 +97,7 @@
 		<select id="library" multiple="multiple" class="select"></select><br/>
 
 		<input type="button" id="playSoundBtn" value="Play"/>
+		<input type="button" id="createSoundBtn" value="Create"/>
 
 		<label for="interrupt">Interrupt</label>
 		<select id="interrupt">
@@ -104,9 +109,9 @@
 			<option value="late">Late</option>
 		</select>
 		<input id="stopAllSoundsBtn" name="stopAll" type="button"
-			   value="Stop All Sounds"/>
+			   value="Stop All"/>
 		<input id="muteAllSoundsBtn" name="muteAll" type="button"
-			   value="Mute All Sounds"/>
+			   value="Mute All"/>
 
 		<br/>
 		<br/>
@@ -215,6 +220,25 @@
 				<td><label for="pos" id="posValue">0</label></td>
 			</tr>
 		</table>
+		<table border="0" width="400" cellpadding="5" cellspacing="5">
+			<label>Instance Audio Sprite Properties</label>
+			<tr>
+				<td><label for="instanceStartTime">StartTime</label></td>
+				<td>
+					<div class="instanceStartTimeSlider" id="instanceStartTime"></div>
+				</td>
+				<td><label for="instanceStartTime" id="instanceStartTimeValue">0 seconds</label>
+				</td>
+			</tr>
+			<tr>
+				<td><label for="instanceDuration">Duration</label></td>
+				<td>
+					<div class="instanceDurationSlider" id="instanceDuration"></div>
+				</td>
+				<td><label for="instanceDuration" id="instanceDurationValue">0 seconds</label>
+				</td>
+			</tr>
+		</table>
 	</form>
 
 </div>
@@ -321,19 +345,20 @@
 
 		$("#library").change(selectItem);
 		$("#playSoundBtn").click(playSound);
+		$("#createSoundBtn").click(createSound);
 		$("#stopAllSoundsBtn").click(function (event) {
 			//clearInterval(audioInterval);
 			createjs.Sound.stop();
 		});
 		$("#muteAllSoundsBtn").click(function (event) {
 			var muted = !createjs.Sound.getMute();
-			createjs.Sound.setMute(muted);
+			createjs.Sound.muted = muted;
 			$("#muteAllSoundsBtn").attr("value", muted ? "Unmute All Sounds" : "Mute All Sounds");
 		});
 
 		$(".masterVolumeSlider").on('slidestop', function (event) {
 			var value = $(this).slider("option", "value");
-			createjs.Sound.setVolume(value / 100);
+			createjs.Sound.volume = value / 100;
 		});
 
 		// instance controls
@@ -366,6 +391,22 @@
 								   change: handleSliderChange
 							   });
 
+		$(".instanceStartTimeSlider").slider({value: 0,
+										 min: 0,
+										 max: 10,
+										 disabled: true,
+										 change: handleSliderChange
+									 });
+		$(".instanceStartTimeSlider").data("units", "second");
+
+		$(".instanceDurationSlider").slider({value: 0,
+										min: 0,
+										max: 10,
+										disabled: true,
+										change: handleSliderChange
+									});
+		$(".instanceDurationSlider").data("units", "second");
+
 		$("#nowPlaying").change(selectInstance);
 		$("#playBtn").click(function (event) {
 			var instance = getInstance();
@@ -373,17 +414,18 @@
 				return;
 			}
 
+			var playProps = {};
 			var interrupt = $("#interrupt").get(0);
-			var interruptValue = interrupt.options[interrupt.selectedIndex].value;
-			var loop = $(".instanceLoopSlider").slider("option", "value");
-			var delay = $(".delaySlider").slider("option", "value") * 1000;
-			var offset = $(".offsetSlider").slider("option", "value") * 1000;
-			if (offset < 0) {
-				offset = null;
+			playProps.interrupt = interrupt.options[interrupt.selectedIndex].value;
+			playProps.loop = $(".instanceLoopSlider").slider("option", "value");
+			playProps.delay = $(".delaySlider").slider("option", "value") * 1000;
+			playProps.offset = $(".offsetSlider").slider("option", "value") * 1000;
+			if (playProps.offset < 0) {
+				playProps.offset = null;
 			}
-			var volume = $(".volumeSlider").slider("option", "value") / 100;
-			var pan = $(".panSlider").slider("option", "value");
-			instance.play(interruptValue, delay, offset, loop, volume, pan);
+			playProps.volume = $(".volumeSlider").slider("option", "value") / 100;
+			playProps.pan = $(".panSlider").slider("option", "value");
+			instance.play(playProps);
 		});
 		$("#stopBtn").click(function (event) {
 			var instance = getInstance();
@@ -397,7 +439,7 @@
 			if (instance == null) {
 				return;
 			}
-			instance.paused ? instance.resume() : instance.pause();
+			instance.paused ? instance.paused = false : instance.paused = true;
 			$("#pauseBtn").attr("value", instance.paused ? "Resume" : "Pause");
 		});
 		$("#muteBtn").click(function (event) {
@@ -405,9 +447,8 @@
 			if (instance == null) {
 				return;
 			}
-			var muted = !instance.getMute();
-			instance.setMute(muted);
-			$("#muteBtn").attr("value", muted ? "Unmute" : "Mute");
+			instance.muted = !instance.muted;
+			$("#muteBtn").attr("value", instance.muted ? "Unmute" : "Mute");
 		});
 		$("#clearBtn").click(function (event) {
 			var instance = getInstance();
@@ -429,7 +470,7 @@
 				return;
 			}
 			var value = $(this).slider("option", "value");
-			instance.setVolume(value / 100);
+			instance.volume = value / 100;
 		});
 
 		$(".instanceLoopSlider").on('slidestop', function (event) {
@@ -444,17 +485,31 @@
 		$(".panSlider").on('slidestop', function (event) {
 			var instance = getInstance();
 			var value = $(this).slider("option", "value");
-			instance.setPan(value);
+			instance.pan = value;
 		});
 
 		$(".posSlider").on('slidestop', function (event) {
 			var instance = getInstance();
 			var value = $(this).slider("option", "value");
-			instance.setPosition(value / 100 * instance.getDuration());
+			instance.position = (value / 100 * instance.duration);
 			audioInterval = setInterval(setPosSlider, intervalTime);
 		});
 		$(".posSlider").on('slidestart', function (event) {
 			clearInterval(audioInterval);
+		});
+
+		$(".instanceStartTimeSlider").on('slidestop', function (event) {
+			var instance = getInstance();
+			if (instance == null) {return;}
+			var value = $(this).slider("option", "value");
+			instance.startTime = value * 1000;
+		});
+
+		$(".instanceDurationSlider").on('slidestop', function (event) {
+			var instance = getInstance();
+			if (instance == null) {return;}
+			var value = $(this).slider("option", "value");
+			instance.duration = value * 1000;
 		});
 
 		enableSet("sound", false);
@@ -463,7 +518,7 @@
 		var assetsPath = "../_assets/audio/";
 		var sounds = [
 			{id: "Music", src: "M-GameBG.ogg", data: 2},
-			{id: "Humm (mp3)", src: "Humm.mp3"},
+			{id: "Humm (mp3)", src: "Humm.mp3", defaultPlayProps:{interrupt:createjs.Sound.INTERRUPT_ANY, loop:-1, volume:0.5, offset: 2000}},
 			{id: "Humm", src: "Humm.ogg"},
 			{id: "Thunder", src: "Thunder1.ogg", data: 3},
 			{id: "Rat Damage", src: "R-Damage.ogg", type: "sound"},
@@ -471,7 +526,7 @@
 			{src: "Game-AudioSprite.ogg", data: {
 				audioSprite: [
 					{id: "Audio Sprite Break", startTime: 0, duration: 500},
-					{id: "Audio Sprite Shot", startTime: 1000, duration: 245},
+					{id: "Audio Sprite Shot", startTime: 1000, duration: 245, defaultPlayProps:{loop:-1, volume:0.75}},
 					{id: "Audio Sprite Death", startTime: 1700, duration: 1074}
 				]}
 			}
@@ -509,14 +564,45 @@
 		}
 
 		// Options
+		var playProps = {};
 		var interrupt = $("#interrupt").get(0);
-		var interruptValue = interrupt.options[interrupt.selectedIndex].value;
-		var loop = $(".loopSlider").slider("option", "value");
-		var delay = $(".delaySlider").slider("option", "value") * 1000;
-		var offset = $(".offsetSlider").slider("option", "value") * 1000;
-		if (offset < 0) {
-			offset = null;
+		playProps.interrupt = interrupt.options[interrupt.selectedIndex].value;
+		playProps.loop = $(".loopSlider").slider("option", "value");
+		playProps.delay = $(".delaySlider").slider("option", "value") * 1000;
+		playProps.offset = $(".offsetSlider").slider("option", "value") * 1000;
+		if (playProps.offset < 0) {
+			playProps.offset = null;
 		}
+		playProps.startTime = $(".startTimeSlider").slider("option", "value") * 1000;
+		playProps.duration = $(".durationSlider").slider("option", "value") * 1000;
+		if (playProps.duration == 0) {
+			playProps.startTime = null;
+			playProps.duration = null;
+		}
+
+		for (var i = 0, l = list.options.length; i < l; i++) {
+			if (!list.options[i].selected) {
+				continue;
+			}
+			var item = list.options[i];
+
+			var instance = createjs.Sound.createInstance(item.value, playProps.startTime, playProps.duration);
+			instance.handleSuccessProxy = createjs.proxy(handlePlaySuccess, instance);	// OJR kind of hacky
+			instance.addEventListener("succeeded", instance.handleSuccessProxy);
+			//instance.addEventListener("interrupted", createjs.proxy(handlePlayFailed,instance));
+			//instance.addEventListener("failed", createjs.proxy(handlePlayFailed,instance));
+			//instance.addEventListener("complete", createjs.proxy(handleSoundComplete,instance));
+
+			instance.play(playProps);
+		}
+	}
+
+	function createSound(event) {
+		var list = $("#library").get(0);
+		if (list.selectedIndex == -1) {
+			return;
+		}
+
 		var startTime = $(".startTimeSlider").slider("option", "value") * 1000;
 		var duration = $(".durationSlider").slider("option", "value") * 1000;
 		if (duration == 0) {
@@ -529,15 +615,10 @@
 				continue;
 			}
 			var item = list.options[i];
-
 			var instance = createjs.Sound.createInstance(item.value, startTime, duration);
-			instance.handleSuccessProxy = createjs.proxy(handlePlaySuccess, instance);	// OJR kind of hacky
-			instance.addEventListener("succeeded", instance.handleSuccessProxy);
-			//instance.addEventListener("interrupted", createjs.proxy(handlePlayFailed,instance));
-			//instance.addEventListener("failed", createjs.proxy(handlePlayFailed,instance));
-			//instance.addEventListener("complete", createjs.proxy(handleSoundComplete,instance));
+			instance.handleSuccessProxy = null;
 
-			instance.play(interruptValue, delay, offset, loop);
+			handlePlaySuccess({target:instance});
 		}
 	}
 
@@ -642,7 +723,7 @@
 			enableSet("instance", true);
 			var instance = getInstance();
 
-			var value = instance.getVolume() * 100 | 0;
+			var value = instance.volume * 100 | 0;
 			$(".volumeSlider").slider("value", value);
 			$("#volumeValue").text(value);
 
@@ -650,15 +731,23 @@
 			$(".instanceLoopSlider").slider("value", value);
 			$("#instaceLoopValue").text(value);
 
-			value = instance.getPan() | 0;
+			value = instance.pan | 0;
 			$(".panSlider").slider("value", value);
 			$("#panValue").text(value);
 
 			setPosSlider();
 			audioInterval = setInterval(setPosSlider, intervalTime);
 
+			value = instance.startTime / 1000 | 0;
+			$(".instanceStartTimeSlider").slider("value", value);
+			$("#instaceStartTimeValue").text(value);
+
+			value = instance.duration / 1000 | 0;
+			$(".instanceDurationSlider").slider("value", value);
+			$("#instaceDurationpValue").text(value);
+
 			$("#pauseBtn").attr("value", instance.paused ? "Resume" : "Pause");
-			$("#muteBtn").attr("value", instance.getMute() ? "Unmute" : "Mute");
+			$("#muteBtn").attr("value", instance.muted ? "Unmute" : "Mute");
 		} else {
 			enableSet("instance", false);
 		}
@@ -666,19 +755,19 @@
 
 	function setPosSlider() {
 		var instance = getInstance();
-		value = instance.getPosition() / instance.getDuration() * 100 | 0;
+		var value = instance.position / instance.duration * 100 | 0;
 		$(".posSlider").slider("value", value);
-		$("#posValue").text(instance.getPosition() / instance.getDuration() * 100 | 0);
+		$("#posValue").text(instance.position / instance.duration * 100 | 0);
 	}
 
 	// Toggle the enabled property of a named set of components in a specific form
 	function enableSet(name, enabled) {
 		switch (name) {
 			case "sound":
-				enableItems("playControls", enabled, ["playSoundBtn", "interrupt", "loop", "delay", "offset", "startTime", "duration"]);
+				enableItems("playControls", enabled, ["playSoundBtn", "createSoundBtn", "interrupt", "loop", "delay", "offset", "startTime", "duration"]);
 				break;
 			case "instance":
-				enableItems("instanceControls", enabled, ["play", "pause", "stop", "clear", "volume", "instanceLoop", "pan", "pos", "mute"]);
+				enableItems("instanceControls", enabled, ["play", "pause", "stop", "clear", "volume", "instanceLoop", "pan", "pos", "mute", "instanceStartTime", "instanceDuration"]);
 				break;
 		}
 	}

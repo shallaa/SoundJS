@@ -185,11 +185,11 @@ this.createjs = this.createjs || {};
 		// z need to be -0.5 otherwise the sound only plays in left, right, or center
 	};
 
-	p._removeLooping = function() {
+	p._removeLooping = function(value) {
 		this._sourceNodeNext = this._cleanUpAudioNode(this._sourceNodeNext);
 	};
 
-	p._addLooping = function() {
+	p._addLooping = function(value) {
 		if (this.playState != createjs.Sound.PLAY_SUCCEEDED) { return; }
 		this._sourceNodeNext = this._createAndPlayAudioNode(this._playbackStartTime, 0);
 	};
@@ -234,6 +234,7 @@ this.createjs = this.createjs || {};
 
 		var dur = this._duration * 0.001;
 		var pos = this._position * 0.001;
+		if (pos > dur) {pos = dur;}
 		this.sourceNode = this._createAndPlayAudioNode((s.context.currentTime - dur), pos);
 		this._playbackStartTime = this.sourceNode.startTime - pos;
 
@@ -315,8 +316,10 @@ this.createjs = this.createjs || {};
 	};
 
 	p._updateDuration = function () {
-		this._pause();
-		this._resume();
+		if(this.playState == createjs.Sound.PLAY_SUCCEEDED) {
+			this._pause();
+			this._resume();
+		}
 	};
 
 	createjs.WebAudioSoundInstance = createjs.promote(WebAudioSoundInstance, "AbstractSoundInstance");

@@ -1,8 +1,5 @@
 /*
-* defineProperty
-* Visit http://createjs.com/ for documentation, updates and examples.
-*
-* Copyright (c) 2010 gskinner.com, inc.
+* Copyright (c) 2014 gskinner.com, inc.
 *
 * Permission is hereby granted, free of charge, to any person
 * obtaining a copy of this software and associated documentation
@@ -26,46 +23,52 @@
 * OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/**
-  * @module CreateJS
- */
+module.exports = function (grunt) {
+	var net = require('net');
+	var _callback;
+	var _ports;
+	var _opts;
+	var _done;
 
-// namespace:
-this.createjs = this.createjs||{};
+	grunt.registerMultiTask('findopenport', 'Prints a list of active ips.', function() {
+		_opts = this.options();
 
-/**
- * @class Utility Methods
- */
-(function() {
-	"use strict";
+		_done = this.async();
+		_ports = _opts['ports'] || [80, 8888, 9000, 9999, 9001];
+		checkNext();
+	});
 
-	/**
-	 * Boolean value indicating if Object.defineProperty is supported.
-	 *
-	 * <h4>Example</h4>
-	 *
-	 *      if (createjs.definePropertySupported) { // add getter / setter}
-	 *
-	 * @property definePropertySupported
-	 * @type {Boolean}
-	 * @default true
-	 */
-	var t = Object.defineProperty ? true : false;
+	function checkNext() {
+		if (!_ports.length) {
+			grunt.option(_portName, -1);
+			_done();
+			return;
+		}
 
-	// IE8 has Object.defineProperty, but only for DOM objects, so check if fails to suppress errors
-	var foo = {};
-	try {
-		Object.defineProperty(foo, "bar", {
-			get: function () {
-				return this._bar;
-			},
-			set: function (value) {
-				this._bar = value;
+		check(_ports.shift(), function(success, port) {
+			if (!success) {
+				checkNext();
+			} else {
+				//grunt.option(_portName, port);
+				var configNames = Array.isArray(_opts.configName)?_opts.configName:[_opts.configName];
+
+				configNames.forEach(function(item) {
+					grunt.config.set(item, port);
+				});
+				_done();
 			}
 		});
-	} catch (e) {
-		t = false;
 	}
 
-	createjs.definePropertySupported = t;
-}());
+	function check(port, callback) {
+		var server = net.createServer();
+		server.on('error', function(e) {
+			callback(false, port);
+		});
+
+		server.listen(port, function() {
+			callback(true, port);
+			server.close();
+		});
+	}
+};

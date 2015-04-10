@@ -105,23 +105,20 @@ this.createjs = this.createjs || {};
 
 
 // Public Methods
+	// TODO change flash.setLoop to mimic remove and add??
+	p.setLoop = function (value) {
+		if(this.flashId!= null) {
+			s._flash.setLoop(this.flashId, value);
+		}
+		this._loop = value;
+	};
+
 	p.toString = function () {
 		return "[FlashAudioSoundInstance]"
 	};
 
 
 // Private Methods
-	// TODO change flash.setLoop to mimic remove and add??
-	p._removeLooping = function () {
-		if (this.flashId == null) { return; }
-		s._flash.setLoop(this.flashId, this._loop);
-	};
-
-	p._addLooping = function () {
-		if (this.flashId == null) { return; }
-		s._flash.setLoop(this.flashId, this._loop);
-	};
-
 	p._updateVolume = function() {
 		if (this.flashId == null) { return; }
 		s._flash.setVolume(this.flashId, this._volume)
@@ -149,13 +146,17 @@ this.createjs = this.createjs || {};
 		this.flashId = null;
 	};
 
-	p._beginPlaying = function (offset, loop, volume, pan) {
+	p._beginPlaying = function (playProps) {
 		if (s._flash == null) { return false; }
 
-		this.setPosition(offset);
-		this.setLoop(loop);
-		this.setVolume(volume);
-		this.setPan(pan);
+		this.setPosition(playProps.offset);
+		this.setLoop(playProps.loop);
+		this.setVolume(playProps.volume);
+		this.setPan(playProps.pan);
+		if (playProps.startTime != null) {
+			this.setStartTime(playProps.startTime);
+			this.setDuration(playProps.duration);
+		}
 		this._paused = false;
 
 		this.flashId = s._flash.playSound(this.src, this._position, this._loop, this._volume, this._pan, this._startTime, this._duration);

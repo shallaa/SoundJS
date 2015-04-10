@@ -94,13 +94,9 @@ this.createjs = this.createjs || {};
 
 	// public methods
 	p.load = function () {
-		if (this._tag.parentNode == null) {
-			window.document.body.appendChild(this._tag);
-			this._addedToDOM = true;
-		}
-
 		this._tag.onload = createjs.proxy(this._handleTagComplete, this);
 		this._tag.onreadystatechange = createjs.proxy(this._handleReadyStateChange, this);
+		this._tag.onerror = createjs.proxy(this._handleError, this);
 
 		var evt = new createjs.Event("initialize");
 		evt.loader = this._tag;
@@ -109,7 +105,15 @@ this.createjs = this.createjs || {};
 
 		this._hideTag();
 
+		this._loadTimeout = setTimeout(createjs.proxy(this._handleTimeout, this), this._item.loadTimeout);
+
 		this._tag[this._tagSrcAttribute] = this._item.src;
+
+		// wdg:: Append the tag AFTER setting the src, or SVG loading on iOS will fail.
+		if (this._tag.parentNode == null) {
+			window.document.body.appendChild(this._tag);
+			this._addedToDOM = true;
+		}
 	};
 
 	p.destroy = function() {
@@ -138,6 +142,16 @@ this.createjs = this.createjs || {};
 	};
 
 	/**
+	 * Handle any error events from the tag.
+	 * @method _handleError
+	 * @protected
+	 */
+	p._handleError = function() {
+		this._clean();
+		this.dispatchEvent("error");
+	};
+
+	/**
 	 * Handle the tag's onload callback.
 	 * @method _handleTagComplete
 	 * @private
@@ -153,6 +167,17 @@ this.createjs = this.createjs || {};
 	};
 
 	/**
+	 * The tag request has not loaded within the time specified in loadTimeout.
+	 * @method _handleError
+	 * @param {Object} event The XHR error event.
+	 * @private
+	 */
+	p._handleTimeout = function () {
+		this._clean();
+		this.dispatchEvent(new createjs.Event("timeout"));
+	};
+
+	/**
 	 * Remove event listeners, but don't destroy the request object
 	 * @method _clean
 	 * @private
@@ -160,9 +185,11 @@ this.createjs = this.createjs || {};
 	p._clean = function() {
 		this._tag.onload = null;
 		this._tag.onreadystatechange = null;
+		this._tag.onerror = null;
 		if (this._addedToDOM && this._tag.parentNode != null) {
 			this._tag.parentNode.removeChild(this._tag);
 		}
+		clearTimeout(this._loadTimeout);
 	};
 
 	p._hideTag = function() {
